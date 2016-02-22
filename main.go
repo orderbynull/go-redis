@@ -67,6 +67,7 @@ func (client *Client) Listen() {
 					connection.Close()
 					return
 				}
+				key = strings.Trim(key, "\r\n")
 				log.Println(fmt.Sprintf("Read key '%s'", key))
 
 				reader.ReadString('\n')
@@ -79,6 +80,7 @@ func (client *Client) Listen() {
 					connection.Close()
 					return
 				}
+				value = strings.Trim(value, "\r\n")
 				log.Println(fmt.Sprintf("Read value '%s'", value))
 
 				StringsMap[key] = value
