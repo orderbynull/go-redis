@@ -6,6 +6,7 @@ import (
 	"os"
 	"bufio"
 	"github.com/labstack/gommon/log"
+	"strings"
 )
 
 const (
@@ -15,27 +16,9 @@ const (
 )
 
 type Client struct {
-	incoming chan string
 	outgoing chan string
-	reader   *bufio.Reader
 	writer   *bufio.Writer
 	connection *net.Conn
-}
-
-func (client *Client) Read() {
-	for {
-		line, err := client.reader.ReadString('\n')
-		if err != nil {
-			log.Print("Cannot read error", err)
-
-			connection := *client.connection
-			connection.Close()
-			return
-		}
-
-		log.Print("Read ", line)
-		client.incoming <- line
-	}
 }
 
 func (client *Client) Write() {
@@ -47,18 +30,52 @@ func (client *Client) Write() {
 }
 
 func (client *Client) Listen() {
-	go client.Read()
+	go func() {
+		reader := bufio.NewReader(*client.connection)
+		reader.ReadLine()
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				log.Print("Cannot read error", err)
+
+				connection := *client.connection
+				connection.Close()
+				return
+			}
+
+			log.Print("Read ", strings.Trim(line, "\r\n"))
+
+			if (line == "PING") {
+				client.outgoing <- "+PONG\r\n"
+			} else if (line == "PONG") {
+				client.outgoing <- "+PING\r\n"
+			} else if (line == "SET") {
+				value, errValue := reader.ReadString('\n')
+				if (errValue != nil) {
+					log.Print("Cannot read error", err)
+
+					connection := *client.connection
+					connection.Close()
+					return
+				}
+
+				client.outgoing <- value
+				client.outgoing <- "+OK\r\n"
+			} else {
+				client.outgoing <- "+OK\r\n"
+			}
+		}
+	}()
+
 	go client.Write()
 }
 
 func NewClient(connection *net.Conn) *Client {
 	writer := bufio.NewWriter(*connection)
-	reader := bufio.NewReader(*connection)
 
 	client := &Client{
-		incoming: make(chan string, 1),
 		outgoing: make(chan string, 1),
-		reader: reader,
 		writer: writer,
 		connection: connection,
 	}
@@ -75,18 +92,6 @@ type Clients struct {
 func (clients *Clients) Join(connection *net.Conn) {
 	client := NewClient(connection)
 	clients.clients = append(clients.clients, client)
-
-	go func() {
-		for line := range(client.incoming) {
-			if (line == "PING") {
-				client.outgoing <- "+PONG\r\n"
-			} else if (line == "PONG") {
-				client.outgoing <- "+PING\r\n"
-			} else {
-				client.outgoing <- "+OK\r\n"
-			}
-		}
-	}()
 }
 
 var (
