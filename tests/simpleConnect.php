@@ -11,7 +11,17 @@ $client = new Predis\Client([
     'port'   => 3333,
 ]);
 
-for ($i = 0; $i < 100; $i++) {
-    $client->ping();
-}
+//for ($i = 0; $i < 100; $i++) {
+//    $client->ping();
+//}
 
+//$client->ping();
+
+$key = "mysimplekey";
+$value = "example";
+
+$client->set($key, $value);
+
+$returnValue = $client->get($key);
+var_dump(["RETURN", $returnValue]);
+assert($returnValue == $value);
