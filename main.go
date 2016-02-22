@@ -15,6 +15,11 @@ const (
 	CONN_TYPE = "tcp"
 )
 
+var (
+	StringsMap map[string]string
+)
+
+
 type Client struct {
 	outgoing chan string
 	writer   *bufio.Writer
@@ -44,13 +49,28 @@ func (client *Client) Listen() {
 				return
 			}
 
-			log.Print("Read ", strings.Trim(line, "\r\n"))
+			line = strings.Trim(line, "\r\n")
+			log.Println(fmt.Sprintf("Read %s", line))
 
 			if (line == "PING") {
 				client.outgoing <- "+PONG\r\n"
 			} else if (line == "PONG") {
 				client.outgoing <- "+PING\r\n"
 			} else if (line == "SET") {
+				reader.ReadString('\n')
+
+				key, errValue := reader.ReadString('\n')
+				if (errValue != nil) {
+					log.Print("Cannot read error", err)
+
+					connection := *client.connection
+					connection.Close()
+					return
+				}
+				log.Println(fmt.Sprintf("Read key '%s'", key))
+
+				reader.ReadString('\n')
+
 				value, errValue := reader.ReadString('\n')
 				if (errValue != nil) {
 					log.Print("Cannot read error", err)
@@ -59,8 +79,9 @@ func (client *Client) Listen() {
 					connection.Close()
 					return
 				}
+				log.Println(fmt.Sprintf("Read value '%s'", value))
 
-				client.outgoing <- value
+				StringsMap[key] = value
 				client.outgoing <- "+OK\r\n"
 			} else {
 				client.outgoing <- "+OK\r\n"
@@ -107,6 +128,7 @@ func main() {
 	defer l.Close()
 
 
+	StringsMap = map[string]string{}
 	ClientsStack = new(Clients)
 
 	fmt.Println("Listening on " + CONN_HOST + ":" + CONN_PORT)
