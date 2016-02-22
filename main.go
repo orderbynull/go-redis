@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"bufio"
+	"github.com/labstack/gommon/log"
 )
 
 const (
@@ -23,12 +24,14 @@ type Client struct {
 func (client *Client) Read() {
 	for {
 		line, _ := client.reader.ReadString('\n')
+		log.Print("Read ", line)
 		client.incoming <- line
 	}
 }
 
 func (client *Client) Write() {
 	for data := range client.outgoing {
+		log.Print("Write ", data)
 		client.writer.WriteString(data)
 		client.writer.Flush()
 	}
@@ -44,8 +47,8 @@ func NewClient(connection net.Conn) *Client {
 	reader := bufio.NewReader(connection)
 
 	client := &Client{
-		incoming: make(chan string),
-		outgoing: make(chan string),
+		incoming: make(chan string, 1),
+		outgoing: make(chan string, 1),
 		reader: reader,
 		writer: writer,
 	}
