@@ -19,7 +19,7 @@ type Client struct {
 	outgoing chan string
 	reader   *bufio.Reader
 	writer   *bufio.Writer
-	connection net.Conn
+	connection *net.Conn
 }
 
 func (client *Client) Read() {
@@ -27,7 +27,9 @@ func (client *Client) Read() {
 		line, err := client.reader.ReadString('\n')
 		if err != nil {
 			log.Print("Cannot read error", err)
-			client.connection.Close()
+
+			connection := *client.connection
+			connection.Close()
 			return
 		}
 
@@ -49,9 +51,9 @@ func (client *Client) Listen() {
 	go client.Write()
 }
 
-func NewClient(connection net.Conn) *Client {
-	writer := bufio.NewWriter(connection)
-	reader := bufio.NewReader(connection)
+func NewClient(connection *net.Conn) *Client {
+	writer := bufio.NewWriter(*connection)
+	reader := bufio.NewReader(*connection)
 
 	client := &Client{
 		incoming: make(chan string, 1),
@@ -70,7 +72,7 @@ type Clients struct {
 	clients []*Client
 }
 
-func (clients *Clients) Join(connection net.Conn) {
+func (clients *Clients) Join(connection *net.Conn) {
 	client := NewClient(connection)
 	clients.clients = append(clients.clients, client)
 
@@ -112,6 +114,6 @@ func main() {
 		}
 
 
-		ClientsStack.Join(conn)
+		ClientsStack.Join(&conn)
 	}
 }
