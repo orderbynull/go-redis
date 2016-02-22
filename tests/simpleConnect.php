@@ -11,6 +11,7 @@ $client = new Predis\Client([
     'port'   => 3333,
 ]);
 
-//$client->set("test", "value");
-$client->ping();
+for ($i = 0; $i < 100; $i++) {
+    $client->ping();
+}
 

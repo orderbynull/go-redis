@@ -4,9 +4,7 @@ import (
 	"net"
 	"fmt"
 	"os"
-	"github.com/labstack/gommon/log"
-"bufio"
-"bytes"
+	"bufio"
 )
 
 const (
@@ -15,14 +13,84 @@ const (
 	CONN_TYPE = "tcp"
 )
 
+type Client struct {
+	incoming chan string
+	outgoing chan string
+	reader   *bufio.Reader
+	writer   *bufio.Writer
+}
+
+func (client *Client) Read() {
+	for {
+		line, _ := client.reader.ReadString('\n')
+		client.incoming <- line
+	}
+}
+
+func (client *Client) Write() {
+	for data := range client.outgoing {
+		client.writer.WriteString(data)
+		client.writer.Flush()
+	}
+}
+
+func (client *Client) Listen() {
+	go client.Read()
+	go client.Write()
+}
+
+func NewClient(connection net.Conn) *Client {
+	writer := bufio.NewWriter(connection)
+	reader := bufio.NewReader(connection)
+
+	client := &Client{
+		incoming: make(chan string),
+		outgoing: make(chan string),
+		reader: reader,
+		writer: writer,
+	}
+
+	client.Listen()
+
+	return client
+}
+
+type Clients struct {
+	clients []*Client
+}
+
+func (clients *Clients) Join(connection net.Conn) {
+	client := NewClient(connection)
+	clients.clients = append(clients.clients, client)
+
+	go func() {
+		for line := range(client.incoming) {
+			if (line == "PING") {
+				client.outgoing <- "+PONG\r\n"
+			} else if (line == "PONG") {
+				client.outgoing <- "+PING\r\n"
+			} else {
+				client.outgoing <- "+OK\r\n"
+			}
+		}
+	}()
+}
+
+var (
+	ClientsStack *Clients;
+)
+
 func main() {
 	l, err := net.Listen(CONN_TYPE, CONN_HOST + ":" + CONN_PORT)
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		os.Exit(1)
 	}
-	// Close the listener when the application closes.
 	defer l.Close()
+
+
+	ClientsStack = new(Clients)
+
 	fmt.Println("Listening on " + CONN_HOST + ":" + CONN_PORT)
 	for {
 		// Listen for an incoming connection.
@@ -31,56 +99,8 @@ func main() {
 			fmt.Println("Error accepting: ", err.Error())
 			os.Exit(1)
 		}
-		// Handle connections in a new goroutine.
-		go handleRequest(conn)
+
+
+		ClientsStack.Join(conn)
 	}
-}
-
-func handleRequest(conn net.Conn) {
-	log.Println("Connection Handle")
-
-	buf := make([]byte, 128)
-
-	_, err := conn.Read(buf)
-	if err != nil {
-		fmt.Println("Error reading:", err.Error())
-	}
-
-
-	//readbuffer := bytes.NewBuffer([]byte("123\r\n456"))
-	//reader := bufio.NewReader(readbuffer)
-
-	bufferForReader := bytes.NewBuffer(buf)
-	bufReader := bufio.NewReader(bufferForReader)
-
-	read:
-	line, isPrefis, readErr := bufReader.ReadLine();
-	for  readErr == nil {
-		log.Println("Request line ", string(line))
-		log.Println(isPrefis)
-
-		//log.Print("PING OPERATROR %s", string(line) == "PING")
-		if (string(line) == "PING") {
-			writer := bufio.NewWriter(conn)
-			writer.WriteString("+PONG\r\n")
-			writer.Flush()
-		} else if (string(line) == "PONG") {
-			writer := bufio.NewWriter(conn)
-			writer.WriteString("+PING\r\n")
-			writer.Flush()
-		} else {
-			writer := bufio.NewWriter(conn)
-			writer.WriteString("+OK\r\n")
-			writer.Flush()
-		}
-
-		goto read
-	}
-
-	//numbs, responseWriteError := conn.Write([]byte("+PONG"))
-	//log.Print(numbs, responseWriteError)
-
-
-	// Close the connection when you're done with it.
-	//conn.Close()
 }
