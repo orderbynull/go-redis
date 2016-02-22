@@ -15,15 +15,21 @@ const (
 	CONN_TYPE = "tcp"
 )
 
+type StringMap map[string]string
+
+type DataBase struct {
+	Strings StringMap
+}
+
 var (
-	StringsMap map[string]string
+	DataBases [10]DataBase
 )
 
-
 type Client struct {
-	outgoing chan string
-	writer   *bufio.Writer
+	outgoing   chan string
+	writer     *bufio.Writer
 	connection *net.Conn
+	DataBase   DataBase
 }
 
 func (client *Client) Write() {
@@ -70,7 +76,7 @@ func (client *Client) Listen() {
 				}
 				key = strings.Trim(key, "\r\n")
 
-				value := StringsMap[key]
+				value := client.DataBase.Strings[key]
 
 				returnValue := fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
 				client.outgoing <- returnValue
@@ -102,7 +108,7 @@ func (client *Client) Listen() {
 				value = strings.Trim(value, "\r\n")
 				log.Println(fmt.Sprintf("Read value '%s'", value))
 
-				StringsMap[key] = value
+				client.DataBase.Strings[key] = value
 				//client.outgoing <- "+OK\r\n"
 			} else {
 
@@ -113,13 +119,14 @@ func (client *Client) Listen() {
 	go client.Write()
 }
 
-func NewClient(connection *net.Conn) *Client {
+func NewClient(connection *net.Conn, db DataBase) *Client {
 	writer := bufio.NewWriter(*connection)
 
 	client := &Client{
 		outgoing: make(chan string, 100),
 		writer: writer,
 		connection: connection,
+		DataBase: db,
 	}
 
 	client.Listen()
@@ -132,7 +139,7 @@ type Clients struct {
 }
 
 func (clients *Clients) Join(connection *net.Conn) {
-	client := NewClient(connection)
+	client := NewClient(connection, DataBases[0])
 	clients.clients = append(clients.clients, client)
 }
 
@@ -148,9 +155,40 @@ func main() {
 	}
 	defer l.Close()
 
-
-	StringsMap = map[string]string{}
 	ClientsStack = new(Clients)
+
+	DataBases = [10]DataBase{
+		DataBase{
+			Strings: StringMap{},
+		}, // 1
+		DataBase{
+			Strings: StringMap{},
+		},
+		DataBase{
+			Strings: StringMap{},
+		},
+		DataBase{
+			Strings: StringMap{},
+		},
+		DataBase{
+			Strings: StringMap{},
+		},
+		DataBase{
+			Strings: StringMap{},
+		},
+		DataBase{
+			Strings: StringMap{},
+		},
+		DataBase{
+			Strings: StringMap{},
+		},
+		DataBase{
+			Strings: StringMap{},
+		},
+		DataBase{
+			Strings: StringMap{},
+		},
+	}
 
 	fmt.Println("Listening on " + CONN_HOST + ":" + CONN_PORT)
 	for {
@@ -160,7 +198,6 @@ func main() {
 			fmt.Println("Error accepting: ", err.Error())
 			os.Exit(1)
 		}
-
 
 		ClientsStack.Join(&conn)
 	}
