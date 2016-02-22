@@ -39,6 +39,8 @@ func (client *Client) Listen() {
 		reader := bufio.NewReader(*client.connection)
 		reader.ReadLine()
 
+		client.outgoing <- "+OK\r\n"
+
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
@@ -56,6 +58,23 @@ func (client *Client) Listen() {
 				client.outgoing <- "+PONG\r\n"
 			} else if (line == "PONG") {
 				client.outgoing <- "+PING\r\n"
+			} else if (line == "GET") {
+				reader.ReadString('\n')
+				key, errValue := reader.ReadString('\n')
+				if (errValue != nil) {
+					log.Print("Cannot read error", err)
+
+					connection := *client.connection
+					connection.Close()
+					return
+				}
+				key = strings.Trim(key, "\r\n")
+
+				value := StringsMap[key]
+
+				returnValue := fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+				client.outgoing <- returnValue
+				//client.outgoing <- "+OK\r\n"
 			} else if (line == "SET") {
 				reader.ReadString('\n')
 
@@ -84,9 +103,9 @@ func (client *Client) Listen() {
 				log.Println(fmt.Sprintf("Read value '%s'", value))
 
 				StringsMap[key] = value
-				client.outgoing <- "+OK\r\n"
+				//client.outgoing <- "+OK\r\n"
 			} else {
-				client.outgoing <- "+OK\r\n"
+
 			}
 		}
 	}()
@@ -98,7 +117,7 @@ func NewClient(connection *net.Conn) *Client {
 	writer := bufio.NewWriter(*connection)
 
 	client := &Client{
-		outgoing: make(chan string, 1),
+		outgoing: make(chan string, 100),
 		writer: writer,
 		connection: connection,
 	}
