@@ -1,0 +1,12 @@
+{
+    "name": "ovr/go-redis",
+    "authors": [
+        {
+            "name": "Dmitry Patsura",
+            "email": "zaets28rus@gmail.com"
+        }
+    ],
+    "require": {
+        "predis/predis": "~1.0.3"
+    }
+}
